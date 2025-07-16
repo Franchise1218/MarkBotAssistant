@@ -2,6 +2,7 @@ import re
 import pandas as pd
 from typing import Dict, Any, List
 from file_processor import FileProcessor
+from rapidfuzz import fuzz
 
 class MarkBot:
     """Main chatbot class for handling user queries about uploaded files"""
@@ -47,8 +48,24 @@ class MarkBot:
         # Extract keywords
         intent['keywords'] = [word for word in query_lower.split() if len(word) > 2]
         
-        # Determine intent type
-        if any(word in query_lower for word in ['show', 'display', 'what', 'tell me about']):
+        # Check for special Mark-bot commands (inspired by original Mark.py)
+        if query.startswith('search:'):
+            intent['type'] = 'search'
+            intent['target'] = {'type': 'search_command', 'value': query[7:].strip()}
+        elif query.startswith('count:'):
+            intent['type'] = 'count'
+            intent['target'] = {'type': 'count_command', 'value': query[6:].strip()}
+        elif query.startswith('first disc:'):
+            intent['type'] = 'first_disc'
+            intent['target'] = {'type': 'first_disc_command', 'value': query[11:].strip()}
+        elif query.startswith('disc:'):
+            intent['type'] = 'disc'
+            intent['target'] = {'type': 'disc_command', 'value': query[5:].strip()}
+        elif query.startswith('autograph:'):
+            intent['type'] = 'autograph'
+            intent['target'] = {'type': 'autograph_command', 'value': query[10:].strip()}
+        # Determine intent type for natural language queries
+        elif any(word in query_lower for word in ['show', 'display', 'what', 'tell me about']):
             intent['type'] = 'show'
         elif any(word in query_lower for word in ['find', 'search', 'look for']):
             intent['type'] = 'search'
@@ -88,12 +105,16 @@ class MarkBot:
             return self._generate_summary_response(uploaded_files)
         
         if intent['type'] == 'search':
+            if intent['target'] and intent['target']['type'] == 'search_command':
+                return self._handle_search_command(intent, uploaded_files)
             return self._generate_search_response(query, uploaded_files)
         
         if intent['type'] == 'show':
             return self._generate_show_response(intent, uploaded_files)
         
         if intent['type'] == 'count':
+            if intent['target'] and intent['target']['type'] == 'count_command':
+                return self._handle_count_command(intent, uploaded_files)
             return self._generate_count_response(uploaded_files)
         
         if intent['type'] == 'column_info':
@@ -104,6 +125,16 @@ class MarkBot:
         
         if intent['type'] == 'row_info':
             return self._generate_row_info_response(intent, uploaded_files)
+        
+        # Handle special Mark-bot commands
+        if intent['type'] == 'first_disc':
+            return self._handle_first_disc_command(intent, uploaded_files)
+        
+        if intent['type'] == 'disc':
+            return self._handle_disc_command(intent, uploaded_files)
+        
+        if intent['type'] == 'autograph':
+            return self._handle_autograph_command(intent, uploaded_files)
         
         # Default response for general queries
         return self._generate_general_response(query, uploaded_files)
@@ -129,12 +160,19 @@ I can help you analyze your uploaded files! Here's what I can do:
 - How many words/lines are there?
 - Show me lines containing "keyword"
 
+**Special Mark-bot commands:**
+- `search:keyword` - Advanced fuzzy search with scores
+- `count:keyword` - Count occurrences of keyword
+- `first disc:name` - Find first match for disc name
+- `disc:ID` - Find specific disc by ID
+- `autograph:name` - Search in autograph sheets
+
 **General commands:**
 - Show me all uploaded files
 - What's in my files?
 - Help or what can you do?
 
-Just ask me naturally about your files!
+Just ask me naturally about your files or use the special commands!
         """
     
     def _generate_summary_response(self, uploaded_files: Dict[str, Any]) -> str:
@@ -201,12 +239,15 @@ Just ask me naturally about your files!
                 for result in file_results:
                     response += f"- {result['description']}\n"
                     
-                    if result['type'] == 'cell_match' and len(result['matches']) <= 5:
+                    if result['type'] == 'fuzzy_match' and len(result['matches']) <= 5:
+                        for score, match in result['matches']:
+                            response += f"  - Match ({score}%): {match}\n"
+                    elif result['type'] == 'fuzzy_text_match' and len(result['matches']) <= 5:
                         for match in result['matches']:
-                            response += f"  - {match}\n"
-                    elif result['type'] == 'text_match' and len(result['matches']) <= 5:
-                        for match in result['matches']:
-                            response += f"  - Line {match['line_number']}: {match['content']}\n"
+                            response += f"  - Line {match['line_number']} ({match['score']}%): {match['content']}\n"
+                    elif result['type'] == 'column_match':
+                        for col, score in zip(result['columns'], result.get('scores', [])):
+                            response += f"  - Column: {col} ({score}%)\n"
                 
                 response += "\n"
         
@@ -422,5 +463,190 @@ Just ask me naturally about your files!
             response += "- Provide file summaries\n"
             response += "- Show column/row information\n"
             response += "- Type 'help' for more options"
+        
+        return response
+    
+    def _handle_first_disc_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle first disc command - find the first match for a query"""
+        query = intent['target']['value']
+        
+        for filename, file_data in uploaded_files.items():
+            if file_data['type'] == 'excel':
+                results = self.file_processor.search_in_file(query, file_data)
+                
+                if results:
+                    for result in results:
+                        if result['type'] == 'fuzzy_match' and result['matches']:
+                            first_match = result['matches'][0]
+                            score, match_data = first_match
+                            
+                            response = f"🎯 **First disc match for '{query}':**\n\n"
+                            response += f"**File:** {filename}\n"
+                            response += f"**Sheet:** {result['sheet']}\n"
+                            response += f"**Match Score:** {score}%\n\n"
+                            
+                            for key, value in match_data.items():
+                                response += f"- **{key}:** {value}\n"
+                            
+                            return response
+        
+        return f"🛑 No disc found for '{query}'. Maybe it's imaginary."
+    
+    def _handle_disc_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle disc command - find specific disc by ID"""
+        disc_id = intent['target']['value']
+        
+        for filename, file_data in uploaded_files.items():
+            if file_data['type'] == 'excel':
+                for sheet_name, sheet_data in file_data['sheets'].items():
+                    df = sheet_data['data']
+                    
+                    # Look for disc ID in common column names
+                    disc_columns = [col for col in df.columns if 'disc' in col.lower() or 'id' in col.lower()]
+                    
+                    for col in disc_columns:
+                        matches = df[df[col].astype(str).str.contains(disc_id, case=False, na=False)]
+                        
+                        if not matches.empty:
+                            response = f"💿 **Disc '{disc_id}' found:**\n\n"
+                            response += f"**File:** {filename}\n"
+                            response += f"**Sheet:** {sheet_name}\n\n"
+                            
+                            for _, row in matches.iterrows():
+                                for key, value in row.items():
+                                    response += f"- **{key}:** {value}\n"
+                                response += "\n"
+                            
+                            return response
+        
+        return f"🛑 No disc found for '{disc_id}'. Maybe it's imaginary."
+    
+    def _handle_autograph_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle autograph command - search in autograph-related sheets"""
+        query = intent['target']['value']
+        
+        for filename, file_data in uploaded_files.items():
+            if file_data['type'] == 'excel':
+                # Look for autograph-related sheets
+                autograph_sheets = [name for name in file_data['sheets'].keys() 
+                                  if 'autograph' in name.lower() or 'signature' in name.lower()]
+                
+                if autograph_sheets:
+                    response = f"✍️ **Autograph search results for '{query}':**\n\n"
+                    found_matches = False
+                    
+                    for sheet_name in autograph_sheets:
+                        sheet_data = file_data['sheets'][sheet_name]
+                        df = sheet_data['data']
+                        
+                        # Search in autograph sheet
+                        fuzzy_matches = []
+                        for _, row in df.iterrows():
+                            row_text = " ".join(map(str, row.fillna("")))
+                            score = fuzz.partial_ratio(query.lower(), row_text.lower())
+                            if score >= 75:
+                                fuzzy_matches.append((score, row))
+                        
+                        if fuzzy_matches:
+                            found_matches = True
+                            fuzzy_matches.sort(reverse=True, key=lambda x: x[0])
+                            
+                            response += f"**Sheet: {sheet_name}**\n"
+                            
+                            for score, row in fuzzy_matches[:5]:  # Top 5 matches
+                                response += f"- Match ({score}%):\n"
+                                for key, value in row.items():
+                                    response += f"  - **{key}:** {value}\n"
+                                response += "\n"
+                    
+                    if not found_matches:
+                        response += "🫠 No autographs found. Maybe they bailed on the signing table."
+                    
+                    return response
+                else:
+                    # Search in all sheets if no autograph-specific sheet found
+                    results = self.file_processor.search_in_file(query, file_data)
+                    if results:
+                        response = f"✍️ **Autograph search results for '{query}' (searched all sheets):**\n\n"
+                        
+                        for result in results:
+                            if result['type'] == 'fuzzy_match' and result['matches']:
+                                response += f"**Sheet: {result['sheet']}**\n"
+                                for score, match_data in result['matches'][:3]:
+                                    response += f"- Match ({score}%):\n"
+                                    for key, value in match_data.items():
+                                        response += f"  - **{key}:** {value}\n"
+                                    response += "\n"
+                        
+                        return response
+        
+        return f"🫠 No autographs found for '{query}'. Maybe they're dodging fans."
+    
+    def _handle_search_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle search command with enhanced fuzzy search"""
+        query = intent['target']['value']
+        
+        response = f"🔍 **Enhanced search results for: {query}**\n\n"
+        found_results = False
+        
+        for filename, file_data in uploaded_files.items():
+            results = self.file_processor.search_in_file(query, file_data)
+            
+            if results:
+                found_results = True
+                response += f"**{filename}:**\n"
+                
+                for result in results:
+                    response += f"- {result['description']}\n"
+                    
+                    if result['type'] == 'fuzzy_match':
+                        for score, match_data in result['matches'][:10]:
+                            response += f"  - Match ({score}%):\n"
+                            for key, value in match_data.items():
+                                response += f"    - **{key}:** {value}\n"
+                            response += "\n"
+                    
+                    elif result['type'] == 'fuzzy_text_match':
+                        for match in result['matches'][:10]:
+                            response += f"  - Line {match['line_number']} ({match['score']}%): {match['content']}\n"
+                
+                response += "\n"
+        
+        if not found_results:
+            response += "🫠 Zero matches. Maybe spellcheck is your friend."
+        
+        return response
+    
+    def _handle_count_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle count command for keyword occurrences"""
+        keyword = intent['target']['value']
+        
+        response = f"📦 **Count results for '{keyword}':**\n\n"
+        total_count = 0
+        
+        for filename, file_data in uploaded_files.items():
+            file_count = 0
+            
+            if file_data['type'] == 'excel':
+                for sheet_name, sheet_data in file_data['sheets'].items():
+                    df = sheet_data['data']
+                    
+                    # Count in each column
+                    for col in df.columns:
+                        col_count = df[col].astype(str).str.lower().str.contains(keyword.lower(), na=False).sum()
+                        file_count += col_count
+            
+            elif file_data['type'] == 'text':
+                content = file_data['content'].lower()
+                file_count = content.count(keyword.lower())
+            
+            if file_count > 0:
+                response += f"**{filename}:** {file_count} occurrences\n"
+                total_count += file_count
+        
+        response += f"\n**Total:** '{keyword}' appears {total_count} times across all files."
+        
+        if total_count > 0:
+            response += " That's probably more than your monthly cardio."
         
         return response

@@ -2,6 +2,7 @@ import pandas as pd
 import io
 import re
 from typing import Dict, Any, List, Union
+from rapidfuzz import fuzz
 
 class FileProcessor:
     """Handles processing of uploaded Excel and text files"""
@@ -155,60 +156,78 @@ class FileProcessor:
         return results
     
     def _search_excel(self, query: str, file_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Search for content in Excel file"""
+        """Search for content in Excel file using fuzzy matching"""
         results = []
         query_lower = query.lower()
         
         for sheet_name, sheet_data in file_data['sheets'].items():
             df = sheet_data['data']
             
-            # Search in column names
-            matching_columns = [col for col in df.columns if query_lower in str(col).lower()]
+            # Search in column names using fuzzy matching
+            matching_columns = []
+            for col in df.columns:
+                score = fuzz.partial_ratio(query_lower, str(col).lower())
+                if score >= 75:
+                    matching_columns.append((col, score))
+            
             if matching_columns:
+                matching_columns.sort(key=lambda x: x[1], reverse=True)
                 results.append({
                     'type': 'column_match',
                     'sheet': sheet_name,
-                    'columns': matching_columns,
+                    'columns': [col for col, _ in matching_columns],
+                    'scores': [score for _, score in matching_columns],
                     'description': f"Found matching columns in sheet '{sheet_name}'"
                 })
             
-            # Search in cell values
-            for col in df.columns:
-                mask = df[col].astype(str).str.lower().str.contains(query_lower, na=False)
-                if mask.any():
-                    matching_rows = df[mask]
-                    results.append({
-                        'type': 'cell_match',
-                        'sheet': sheet_name,
-                        'column': col,
-                        'matches': matching_rows.to_dict('records'),
-                        'description': f"Found {len(matching_rows)} matching rows in column '{col}' of sheet '{sheet_name}'"
-                    })
+            # Search in cell values using fuzzy matching
+            fuzzy_matches = []
+            for _, row in df.iterrows():
+                row_text = " ".join(map(str, row.fillna("")))
+                score = fuzz.partial_ratio(query_lower, row_text.lower())
+                if score >= 75:
+                    fuzzy_matches.append((score, row))
+            
+            if fuzzy_matches:
+                # Sort by score and take top 10
+                fuzzy_matches.sort(reverse=True, key=lambda x: x[0])
+                top_matches = fuzzy_matches[:10]
+                
+                results.append({
+                    'type': 'fuzzy_match',
+                    'sheet': sheet_name,
+                    'matches': [(score, row.to_dict()) for score, row in top_matches],
+                    'description': f"Found {len(top_matches)} fuzzy matches in sheet '{sheet_name}'"
+                })
         
         return results
     
     def _search_text(self, query: str, file_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Search for content in text file"""
+        """Search for content in text file using fuzzy matching"""
         results = []
         query_lower = query.lower()
-        content = file_data['content']
         lines = file_data['lines']
         
-        # Search for query in content
-        if query_lower in content.lower():
-            matching_lines = []
-            for i, line in enumerate(lines):
-                if query_lower in line.lower():
-                    matching_lines.append({
-                        'line_number': i + 1,
-                        'content': line.strip()
-                    })
-            
-            if matching_lines:
-                results.append({
-                    'type': 'text_match',
-                    'matches': matching_lines,
-                    'description': f"Found {len(matching_lines)} matching lines"
+        # Search for query in content using fuzzy matching
+        matching_lines = []
+        for i, line in enumerate(lines):
+            score = fuzz.partial_ratio(query_lower, line.lower())
+            if score >= 75:
+                matching_lines.append({
+                    'line_number': i + 1,
+                    'content': line.strip(),
+                    'score': score
                 })
+        
+        if matching_lines:
+            # Sort by score and take top 20
+            matching_lines.sort(key=lambda x: x['score'], reverse=True)
+            top_matches = matching_lines[:20]
+            
+            results.append({
+                'type': 'fuzzy_text_match',
+                'matches': top_matches,
+                'description': f"Found {len(top_matches)} fuzzy matches"
+            })
         
         return results
