@@ -27,6 +27,12 @@ def main():
     st.title("🤖 Mark-bot")
     st.markdown("Upload Excel or text files and ask questions about their content!")
     
+    # Add terminal mode toggle
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.button("🖥️ Terminal Mode"):
+            st.switch_page("terminal_mark.py")
+    
     # Sidebar for file management
     with st.sidebar:
         st.header("📁 File Management")
