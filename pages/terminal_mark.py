@@ -7,9 +7,9 @@ import sys
 sys.path.append('..')
 from loginbot import LoginBot
 
-# Mark.py functionality
-excel_file = "../MASTER DVD.xlsx"
-db_file = "../mark_database.db"
+# Mark.py functionality - use absolute paths from project root
+excel_file = os.path.join(os.path.dirname(__file__), "..", "MASTER DVD.xlsx")
+db_file = os.path.join(os.path.dirname(__file__), "..", "mark_database.db")
 
 def refresh_sql_from_excel():
     st.write("🧠 Booting MARK's brain from Excel...")
