@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from file_processor import FileProcessor
 from chatbot import MarkBot
+from loginbot import LoginBot
 
 # Initialize session state
 if 'messages' not in st.session_state:
@@ -13,6 +14,8 @@ if 'file_processor' not in st.session_state:
     st.session_state.file_processor = FileProcessor()
 if 'chatbot' not in st.session_state:
     st.session_state.chatbot = MarkBot()
+if 'loginbot' not in st.session_state:
+    st.session_state.loginbot = LoginBot()
 
 def main():
     st.set_page_config(
@@ -35,6 +38,20 @@ def main():
             accept_multiple_files=True,
             key="file_uploader"
         )
+        
+        # Special handling for credential files
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                if uploaded_file.name.lower().endswith('.txt') and ('log' in uploaded_file.name.lower() or 'credential' in uploaded_file.name.lower()):
+                    try:
+                        # Load credential data into loginbot
+                        content = uploaded_file.read().decode('utf-8')
+                        st.session_state.loginbot.load_credentials_from_file(content)
+                        st.success(f"🔐 Loaded {len(st.session_state.loginbot.get_all_clouds())} credentials from {uploaded_file.name}")
+                        # Reset file pointer for normal processing
+                        uploaded_file.seek(0)
+                    except Exception as e:
+                        st.error(f"Error loading credentials: {str(e)}")
         
         # Process uploaded files
         if uploaded_files:

@@ -12,10 +12,11 @@ Preferred communication style: Simple, everyday language.
 
 **July 16, 2025 - Enhanced Mark-bot with Original Script Integration**
 - Integrated RapidFuzz fuzzy search functionality from original Mark.py script
-- Added special Mark-bot commands: search:, count:, first disc:, disc:, autograph:
+- Added special Mark-bot commands: search:, count:, first disc:, disc:, autograph:, login for:, prefix:
 - Enhanced search results with match percentage scores (75% threshold)
 - Improved file processing with fuzzy string matching capabilities
 - Added specialized handlers for disc and autograph data searches
+- Integrated loginbot functionality for credential management from LOGS.txt
 - Updated help system to include new command syntax
 
 ## System Architecture

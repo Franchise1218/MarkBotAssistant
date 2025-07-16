@@ -3,6 +3,7 @@ import pandas as pd
 from typing import Dict, Any, List
 from file_processor import FileProcessor
 from rapidfuzz import fuzz
+from loginbot import LoginBot
 
 class MarkBot:
     """Main chatbot class for handling user queries about uploaded files"""
@@ -10,6 +11,7 @@ class MarkBot:
     def __init__(self):
         self.file_processor = FileProcessor()
         self.conversation_context = []
+        self.loginbot = LoginBot()
     
     def generate_response(self, user_query: str, uploaded_files: Dict[str, Any]) -> str:
         """
@@ -64,6 +66,12 @@ class MarkBot:
         elif query.startswith('autograph:'):
             intent['type'] = 'autograph'
             intent['target'] = {'type': 'autograph_command', 'value': query[10:].strip()}
+        elif query.startswith('login for:'):
+            intent['type'] = 'login'
+            intent['target'] = {'type': 'login_command', 'value': query[10:].strip()}
+        elif query.startswith('prefix:'):
+            intent['type'] = 'prefix'
+            intent['target'] = {'type': 'prefix_command', 'value': query[7:].strip()}
         # Determine intent type for natural language queries
         elif any(word in query_lower for word in ['show', 'display', 'what', 'tell me about']):
             intent['type'] = 'show'
@@ -136,6 +144,12 @@ class MarkBot:
         if intent['type'] == 'autograph':
             return self._handle_autograph_command(intent, uploaded_files)
         
+        if intent['type'] == 'login':
+            return self._handle_login_command(intent, uploaded_files)
+        
+        if intent['type'] == 'prefix':
+            return self._handle_prefix_command(intent, uploaded_files)
+        
         # Default response for general queries
         return self._generate_general_response(query, uploaded_files)
     
@@ -166,6 +180,8 @@ I can help you analyze your uploaded files! Here's what I can do:
 - `first disc:name` - Find first match for disc name
 - `disc:ID` - Find specific disc by ID
 - `autograph:name` - Search in autograph sheets
+- `login for:alias` - Get login credentials for alias
+- `prefix:text` - List all aliases starting with text
 
 **General commands:**
 - Show me all uploaded files
@@ -650,3 +666,26 @@ Just ask me naturally about your files or use the special commands!
             response += " That's probably more than your monthly cardio."
         
         return response
+    
+    def _handle_login_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle login command to get credentials"""
+        alias = intent['target']['value']
+        
+        credentials = self.loginbot.get_login(alias)
+        if credentials:
+            return f"🔐 **Credentials found:**\n\n{credentials}"
+        else:
+            return f"🛑 No login info found for '{alias}'. Try uploading a credentials file first or check the alias spelling."
+    
+    def _handle_prefix_command(self, intent: Dict[str, Any], uploaded_files: Dict[str, Any]) -> str:
+        """Handle prefix command to list clouds starting with prefix"""
+        prefix = intent['target']['value']
+        
+        clouds = self.loginbot.list_clouds_starting(prefix)
+        if clouds:
+            response = f"📡 **Aliases matching '{prefix}':**\n\n"
+            for cloud in clouds:
+                response += f"• {cloud}\n"
+            return response
+        else:
+            return f"📡 No aliases found starting with '{prefix}'. Try a broader prefix or upload a credentials file."
