@@ -31,7 +31,7 @@ def main():
     col1, col2 = st.columns([3, 1])
     with col2:
         if st.button("🖥️ Terminal Mode"):
-            st.switch_page("terminal_mark.py")
+            st.switch_page("pages/terminal_mark.py")
     
     # Sidebar for file management
     with st.sidebar:

@@ -3,11 +3,13 @@ import pandas as pd
 import sqlite3
 from rapidfuzz import fuzz
 import os
+import sys
+sys.path.append('..')
 from loginbot import LoginBot
 
 # Mark.py functionality
-excel_file = "./MASTER DVD.xlsx"
-db_file = "mark_database.db"
+excel_file = "../MASTER DVD.xlsx"
+db_file = "../mark_database.db"
 
 def refresh_sql_from_excel():
     st.write("🧠 Booting MARK's brain from Excel...")
