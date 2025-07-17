@@ -158,6 +158,7 @@ login for:alias         - Get login credentials
 prefix:text             - List aliases starting with text
 company:name            - Filter by company
 date:YYYY-MM-DD         - Filter by date
+refresh                 - Reload database from Excel file
 exit                    - Close terminal
     """)
     
@@ -257,6 +258,11 @@ exit                    - Close terminal
                     st.dataframe(df)
                 else:
                     st.write(f"🛑 No events for '{date}'. Maybe it's a holiday.")
+                    
+            elif command.lower() == "refresh":
+                st.write("🔄 Refreshing database from Excel file...")
+                refresh_sql_from_excel()
+                st.write("✅ Database refreshed successfully!")
                     
             else:
                 st.write(roast_unknown_command())
