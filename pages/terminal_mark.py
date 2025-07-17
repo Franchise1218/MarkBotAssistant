@@ -238,12 +238,17 @@ exit                    - Close terminal
                     
             elif command.startswith("login for:"):
                 alias = command[10:].strip()
+                st.write(f"🔍 Looking up credentials for: '{alias}'")
+                st.write(f"📊 Total loaded credentials: {len(st.session_state.loginbot.get_all_clouds())}")
                 creds = st.session_state.loginbot.get_login(alias)
                 if creds:
                     st.write("🔐 **Credentials incoming:**")
                     st.code(creds)
                 else:
                     st.write("🛑 Login not found. Try remembering where you wrote it down.")
+                    # Show available aliases for debugging
+                    all_aliases = st.session_state.loginbot.get_all_clouds()
+                    st.write(f"Available aliases: {', '.join(all_aliases[:10])}...")
                     
             elif command.startswith("prefix:"):
                 prefix = command[7:].strip()
