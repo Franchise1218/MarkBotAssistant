@@ -16,8 +16,14 @@ class LoginBot:
         for line in file_content.strip().split('\n'):
             if ',' in line:
                 parts = line.strip().split(',')
-                if len(parts) == 2:
-                    # Format: email,password (from LOGS.txt)
+                if len(parts) == 3:
+                    # Format: alias,email,password (from Passwords file)
+                    alias = parts[0].strip()
+                    email = parts[1].strip()
+                    password = parts[2].strip()
+                    self.credentials[alias] = (email, password)
+                elif len(parts) == 2:
+                    # Format: email,password (from old LOGS.txt)
                     email = parts[0].strip()
                     password = parts[1].strip()
                     
@@ -32,13 +38,17 @@ class LoginBot:
         if not self.loaded:
             return None
             
-        cloud_name = cloud_name.lower().strip()
+        # Try exact match first
         if cloud_name in self.credentials:
             email, password = self.credentials[cloud_name]
-            if email:
-                return f"📦 {cloud_name.upper()}\nEmail: {email}\nPassword: {password}"
-            else:
-                return f"📦 {cloud_name.upper()}\nPassword: {password}"
+            return f"📦 {cloud_name.upper()}\nEmail: {email}\nPassword: {password}"
+        
+        # Try case-insensitive match
+        cloud_name_lower = cloud_name.lower().strip()
+        for alias, (email, password) in self.credentials.items():
+            if alias.lower() == cloud_name_lower:
+                return f"📦 {alias.upper()}\nEmail: {email}\nPassword: {password}"
+        
         return None
     
     def list_clouds_starting(self, prefix: str, limit: int = 10) -> List[str]:
@@ -47,8 +57,9 @@ class LoginBot:
             return []
             
         matches = []
+        prefix_lower = prefix.lower()
         for cloud in self.credentials.keys():
-            if cloud.startswith(prefix.lower()):
+            if cloud.lower().startswith(prefix_lower):
                 matches.append(cloud)
                 if len(matches) >= limit:
                     break
