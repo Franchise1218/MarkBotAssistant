@@ -111,9 +111,17 @@ def main():
     st.title("💻 Mark Terminal Interface")
     st.markdown("Command-line interface for Mark.py - Enter commands as if you're in a Python terminal")
     
-    # Initialize loginbot
+    # Initialize loginbot and load credentials
     if 'loginbot' not in st.session_state:
         st.session_state.loginbot = LoginBot()
+        # Load credentials from LOGS.txt
+        try:
+            logs_file = os.path.join(os.path.dirname(__file__), "..", "LOGS.txt")
+            with open(logs_file, 'r') as f:
+                content = f.read()
+            st.session_state.loginbot.load_credentials_from_file(content)
+        except Exception as e:
+            st.write(f"Warning: Could not load credentials - {e}")
     
     # Initialize database
     if not os.path.exists(db_file):
@@ -144,6 +152,12 @@ def main():
             st.write(f"Records in database: {df['count'].iloc[0]}")
         else:
             st.write("Database not initialized")
+            
+        st.header("🔐 Login Status")
+        if hasattr(st.session_state, 'loginbot') and st.session_state.loginbot.loaded:
+            st.write(f"Credentials loaded: {len(st.session_state.loginbot.get_all_clouds())} accounts")
+        else:
+            st.write("No credentials loaded")
     
     # Command input
     st.write("---")
