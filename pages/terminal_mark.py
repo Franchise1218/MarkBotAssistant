@@ -52,7 +52,18 @@ def search_autograph_data(query):
 def get_disc(disc_id):
     conn = sqlite3.connect(db_file)
     try:
+        # Try exact match first
         df = pd.read_sql_query("SELECT * FROM mark_table WHERE [Disc #] = ?", conn, params=[disc_id])
+        
+        # If no results and input is just a number, try DVD format
+        if df.empty and disc_id.isdigit():
+            formatted_id = f"DVD{disc_id.zfill(3)}"
+            df = pd.read_sql_query("SELECT * FROM mark_table WHERE [Disc #] = ?", conn, params=[formatted_id])
+        
+        # If still no results, try partial match
+        if df.empty:
+            df = pd.read_sql_query("SELECT * FROM mark_table WHERE [Disc #] LIKE ?", conn, params=[f"%{disc_id}%"])
+            
     except Exception:
         df = pd.DataFrame()
     conn.close()
@@ -140,7 +151,7 @@ def main():
     st.code("""
 search:keyword          - Search for keyword in database
 autograph:name          - Search autograph data
-disc:ID                 - Get specific disc by ID
+disc:ID                 - Get specific disc by ID (e.g., disc:1 or disc:DVD001)
 count:keyword           - Count occurrences of keyword
 first disc:name         - Get first match for name
 login for:alias         - Get login credentials
