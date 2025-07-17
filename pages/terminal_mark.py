@@ -186,10 +186,13 @@ exit                    - Close terminal
                     
             elif command.startswith("disc:"):
                 disc_id = command[5:].strip()
+                st.write(f"🔍 Looking for disc: '{disc_id}'")
                 df = get_disc(disc_id)
+                st.write(f"📊 Query returned {len(df)} rows")
                 if not df.empty:
                     st.write(f"💿 **Disc '{disc_id}':**")
                     st.dataframe(df)
+                    st.json(df.iloc[0].to_dict())
                 else:
                     st.write(f"🛑 No disc found for '{disc_id}'. Maybe it's imaginary.")
                     
