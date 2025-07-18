@@ -4,7 +4,7 @@ import sqlite3
 from rapidfuzz import fuzz
 
 # Paths relative to the root of your project
-excel_file = os.path.join(os.path.dirname(__file__), "..", "MASTER DVD.xlsx")
+excel_file = "MASTER DVD.xlsx"
 db_file = os.path.join(os.path.dirname(__file__), "..", "mark_database.db")
 
 def ensure_db_ready():
