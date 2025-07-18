@@ -135,7 +135,7 @@ def main():
     # Sidebar for credentials
     with st.sidebar:
         st.header("🔐 Credentials")
-        uploaded_logs = st.file_uploader("Upload LOGS.txt", type=['txt'])
+        uploaded_logs = st.file_uploader("Passwords.txt", type=['txt'])
         if uploaded_logs:
             try:
                 content = uploaded_logs.read().decode('utf-8')
