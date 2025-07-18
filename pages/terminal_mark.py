@@ -1,11 +1,9 @@
 import streamlit as st
-import pandas as pd
-import sqlite3
-from rapidfuzz import fuzz
 import os
 import sys
 sys.path.append('..')
 from loginbot import LoginBot
+from mark_core import *
 
 # Mark.py functionality - use absolute paths from project root
 excel_file = os.path.join(os.path.dirname(__file__), "..", "MASTER DVD.xlsx")
